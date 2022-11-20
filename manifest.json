@@ -1,0 +1,9 @@
+{
+  "name": "replace text",
+  "id": "1175987205049540503",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": [
+    "figjam"
+  ]
+}
