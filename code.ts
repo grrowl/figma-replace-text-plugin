@@ -2,24 +2,7 @@
 
 // This plugin replaces all selected shapes' text with the previously selected text
 
-// const RAINBOW: RGBA[] = ["#817", "#a35", "#c66", "#e94", "#ed0", "#9d5", "#4d8", "#2cb", "#0bc", "#09c", "#36b", "#639"].map(hex => toRgb(hex, ColorFormat.OBJECT) as any as RGBA)
-
-/* const RAINBOW: RGBA[] = [
-  { r:136, g:17, b:119, a:255 },
-  { r:170, g:51, b:85, a:255 },
-  { r:204, g:102, b:102, a:255 },
-  { r:238, g:153, b:68, a:255 },
-  { r:238, g:221, b:0, a:255 },
-  { r:153, g:221, b:85, a:255 },
-  { r:68, g:221, b:136, a:255 },
-  { r:34, g:204, b:187, a:255 },
-  { r:0, g:187, b:204, a:255 },
-  { r:0, g:153, b:204, a:255 },
-  { r:51, g:102, b:187, a:255 },
-  { r:102, g:51, b:153, a:255 }
-] */
-
-const RAINBOW: RGB[] = [
+/* const RAINBOW: RGB[] = [
   { r: 0.5333333333333333, g: 0.06666666666666667, b: 0.4666666666666667 },
   { r: 0.6666666666666666, g: 0.2, b: 0.3333333333333333 },
   { r: 0.8, g: 0.4, b: 0.4 },
@@ -32,30 +15,9 @@ const RAINBOW: RGB[] = [
   { r: 0, g: 0.6, b: 0.8 },
   { r: 0.2, g: 0.4, b: 0.7333333333333333 },
   { r: 0.4, g: 0.2, b: 0.6 },
-]
+] */
 
-// or, <link rel="stylesheet" href="https://unpkg.com/xp.css@/dist/98.css" >
-const PROMPT_HTML = `
-<link rel="stylesheet" href="https://unpkg.com/xp.css">
-<div class="window" style="width: 300px">
-  <div class="title-bar">
-    <div class="title-bar-text">BulletText</div>
-    <div class="title-bar-controls">
-      <button aria-label="Close"></button>
-    </div>
-  </div>
-  <div class="window-body">
-    <div class="field-row-stacked" style="width: 240px">
-      <label for="input_text">Paste text here</label>
-      <textarea id="input_text" rows="8"></textarea>
-    </div>
-    <section class="field-row" style="justify-content: flex-end">
-      <button>OK</button>
-      <button>Cancel</button>
-    </section>
-  </div>
-</div>
-`
+const STORAGE_KEY = 'sourceTexts'
 
 function isTextNode(node: any): node is TextNode {
   return node.type === 'TEXT'
@@ -69,36 +31,31 @@ function clone<T>(val: T): T {
   return JSON.parse(JSON.stringify(val))
 }
 
-let sourceTextNode: TextNode | null = null
-
 async function sourceText(node: SceneNode) {
   if (!isTextNode(node)) {
     figma.notify("❌ Selected node is not a plain text node")
     return
   }
 
-  if (sourceTextNode) {
-    // unset the existing one
-    sourceTextNode.opacity = 1
-  }
+  const texts = mapSourceTexts(node.characters)
 
-  node.opacity = 0.76
+  await figma.clientStorage.setAsync(STORAGE_KEY, texts)
 
-  node.strokes = [{
-    type: 'SOLID',
-    color: RAINBOW[RAINBOW.length -1]
-  }]
-
-  // set the new one
-  sourceTextNode = node
-
-  figma.notify("✅ Source text ready")
+  figma.notify(`✅ Source text ready (${texts.length} blocks)`)
 }
-function getSourceTexts() {
-  if (!sourceTextNode || sourceTextNode.removed) {
-    return null
-  }
-  return sourceTextNode.characters.split(/\r\n+/)
+
+function mapSourceTexts(text: string) {
+  console.log({ text} )
+  return text.split(/[\r\n]+/)
+}
+
+async function getSourceTexts() {
+  const texts = await figma.clientStorage.getAsync(STORAGE_KEY)
+
+  if (Array.isArray(texts))
+    return texts as string[]
+
+  return null
 }
 
 async function replaceText(selection: readonly SceneNode[]) {
@@ -118,17 +75,19 @@ async function replaceText(selection: readonly SceneNode[]) {
     }
   }
 
-  figma.showUI(
-    PROMPT_HTML,
-    { width: 300, height: 200, title: "Bullet Text" }
-  )
 
-  const texts = getSourceTexts()
+
+  const texts = await getSourceTexts()
 
   console.log('texts to do:', texts)
 
   if (!texts) {
-    figma.notify("❌ No source text node was found")
+    figma.notify("❌ No source text was previously set")
+    return
+  }
+
+  if (texts.length !== nodes.length) {
+    figma.notify(`❌ Different number of texts (${texts.length} set vs ${nodes.length} selected)`)
     return
   }
 
@@ -137,10 +96,6 @@ async function replaceText(selection: readonly SceneNode[]) {
   })
 
   figma.viewport.scrollAndZoomIntoView(nodes);
-
-  // Make sure to close the plugin when you're done. Otherwise the plugin will
-  // keep running, which shows the cancel button at the bottom of the screen.
-  figma.closePlugin();
 }
 
 
