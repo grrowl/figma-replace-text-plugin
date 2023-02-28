@@ -46,7 +46,8 @@ async function sourceText(node: SceneNode) {
 }
 
 function mapSourceTexts(text: string) {
-  return text.split(/[\r\n]+/)
+  // split by newline, filter out empty lines
+  return text.split(/[\r\n]+/).filter(t => !!t)
 }
 
 async function getSourceTexts() {
